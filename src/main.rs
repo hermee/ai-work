@@ -4,7 +4,6 @@ use clap::Parser;
 use console::style;
 use dialoguer::{Confirm, FuzzySelect, Input};
 use indicatif::{ProgressBar, ProgressStyle};
-use std::io::{BufRead, BufReader};
 use std::path::PathBuf;
 use std::process::{Command, Stdio};
 use std::time::Duration;
@@ -74,69 +73,24 @@ fn spinner(msg: &str) -> ProgressBar {
     pb
 }
 
-/// Run a uv command with live output streaming and a spinner.
+/// Run a uv command with live output visible to the user.
 fn run_uv_live(args: &[&str], cwd: &PathBuf, label: &str) -> Result<(), String> {
-    let sp = ProgressBar::new_spinner();
-    sp.set_style(
-        ProgressStyle::with_template("  {spinner:.green} {msg}")
-            .unwrap()
-            .tick_strings(&["⠋", "⠙", "⠹", "⠸", "⠼", "⠴", "⠦", "⠧", "⠇", "⠏", "✔"]),
-    );
-    sp.set_message(label.to_string());
-    sp.enable_steady_tick(Duration::from_millis(80));
+    println!("  {} {}", style("▸").cyan(), label);
 
-    let mut child = Command::new("uv")
+    let status = Command::new("uv")
         .args(args)
         .current_dir(cwd)
-        .stdout(Stdio::piped())
-        .stderr(Stdio::piped())
-        .spawn()
+        .stdin(Stdio::null())
+        .stdout(Stdio::inherit())
+        .stderr(Stdio::inherit())
+        .status()
         .map_err(|e| format!("Failed to run uv: {e}"))?;
 
-    // Stream stderr (uv writes progress to stderr)
-    let stderr = child.stderr.take().unwrap();
-    let sp_clone = sp.clone();
-    let label_owned = label.to_string();
-    let stderr_handle = thread::spawn(move || {
-        let reader = BufReader::new(stderr);
-        let mut last_lines = Vec::new();
-        for line in reader.lines() {
-            if let Ok(line) = line {
-                let trimmed = line.trim().to_string();
-                if !trimmed.is_empty() {
-                    sp_clone.set_message(format!("{} │ {}", label_owned, style(&trimmed).dim()));
-                    last_lines.push(trimmed);
-                }
-            }
-        }
-        last_lines
-    });
-
-    // Capture stdout
-    let stdout = child.stdout.take().unwrap();
-    let stdout_handle = thread::spawn(move || {
-        let reader = BufReader::new(stdout);
-        let mut out = String::new();
-        for line in reader.lines() {
-            if let Ok(line) = line {
-                out.push_str(&line);
-                out.push('\n');
-            }
-        }
-        out
-    });
-
-    let status = child.wait().map_err(|e| format!("uv process error: {e}"))?;
-    let stderr_lines = stderr_handle.join().unwrap_or_default();
-    let _stdout = stdout_handle.join().unwrap_or_default();
-
     if status.success() {
-        sp.finish_with_message(format!("{} {}", style("✔").green(), label));
+        println!("  {} {}", style("✔").green(), label);
         Ok(())
     } else {
-        sp.finish_with_message(format!("{} {}", style("✘").red(), label));
-        let err_msg = stderr_lines.into_iter().rev().take(5).collect::<Vec<_>>().into_iter().rev().collect::<Vec<_>>().join("\n");
-        Err(err_msg)
+        Err(format!("{} failed with exit code {}", label, status))
     }
 }
 
