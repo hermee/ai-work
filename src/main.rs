@@ -4,9 +4,11 @@ use clap::Parser;
 use console::style;
 use dialoguer::{Confirm, FuzzySelect, Input};
 use indicatif::{ProgressBar, ProgressStyle};
+use std::io::{BufRead, BufReader};
 use std::path::PathBuf;
-use std::process::Command;
+use std::process::{Command, Stdio};
 use std::time::Duration;
+use std::thread;
 
 #[derive(Parser)]
 #[command(name = "aiw", version, about = "🧬 AI Project Template Scaffolding CLI")]
@@ -43,15 +45,21 @@ fn detect_gpu() -> bool {
 }
 
 fn banner() {
-    println!("{}", style(r#"
-  ╔══════════════════════════════════════════════════════╗
-  ║                                                      ║
-  ║   🧬  aiw — AI Work  v0.1.0                       ║
-  ║   ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━               ║
-  ║   Scaffold production-ready AI research projects     ║
-  ║                                                      ║
-  ╚══════════════════════════════════════════════════════╝
-"#).cyan().bold());
+    let lines = [
+        "",
+        "    ╭──────────────────────────────────────────────────╮",
+        "    │                                                  │",
+        "    │   🧬  aiw — AI Work                             │",
+        "    │   ──────────────────                             │",
+        "    │   Scaffold production-ready AI research projects │",
+        "    │                                                  │",
+        "    ╰──────────────────────────────────────────────────╯",
+        "",
+    ];
+    for line in &lines {
+        println!("{}", style(line).cyan().bold());
+        thread::sleep(Duration::from_millis(30));
+    }
 }
 
 fn spinner(msg: &str) -> ProgressBar {
@@ -66,31 +74,69 @@ fn spinner(msg: &str) -> ProgressBar {
     pb
 }
 
-fn progress_bar(len: u64, msg: &str) -> ProgressBar {
-    let pb = ProgressBar::new(len);
-    pb.set_style(
-        ProgressStyle::with_template("  {msg} [{bar:30.cyan/dim}] {pos}/{len}")
+/// Run a uv command with live output streaming and a spinner.
+fn run_uv_live(args: &[&str], cwd: &PathBuf, label: &str) -> Result<(), String> {
+    let sp = ProgressBar::new_spinner();
+    sp.set_style(
+        ProgressStyle::with_template("  {spinner:.green} {msg}")
             .unwrap()
-            .progress_chars("█▓░"),
+            .tick_strings(&["⠋", "⠙", "⠹", "⠸", "⠼", "⠴", "⠦", "⠧", "⠇", "⠏", "✔"]),
     );
-    pb.set_message(msg.to_string());
-    pb
-}
+    sp.set_message(label.to_string());
+    sp.enable_steady_tick(Duration::from_millis(80));
 
-fn run_cmd(cmd: &str, args: &[&str], cwd: &PathBuf) -> Result<String, String> {
-    let output = Command::new(cmd)
+    let mut child = Command::new("uv")
         .args(args)
         .current_dir(cwd)
-        .output()
-        .map_err(|e| format!("Failed to run {cmd}: {e}"))?;
-    if output.status.success() {
-        Ok(String::from_utf8_lossy(&output.stdout).to_string())
+        .stdout(Stdio::piped())
+        .stderr(Stdio::piped())
+        .spawn()
+        .map_err(|e| format!("Failed to run uv: {e}"))?;
+
+    // Stream stderr (uv writes progress to stderr)
+    let stderr = child.stderr.take().unwrap();
+    let sp_clone = sp.clone();
+    let label_owned = label.to_string();
+    let stderr_handle = thread::spawn(move || {
+        let reader = BufReader::new(stderr);
+        let mut last_lines = Vec::new();
+        for line in reader.lines() {
+            if let Ok(line) = line {
+                let trimmed = line.trim().to_string();
+                if !trimmed.is_empty() {
+                    sp_clone.set_message(format!("{} │ {}", label_owned, style(&trimmed).dim()));
+                    last_lines.push(trimmed);
+                }
+            }
+        }
+        last_lines
+    });
+
+    // Capture stdout
+    let stdout = child.stdout.take().unwrap();
+    let stdout_handle = thread::spawn(move || {
+        let reader = BufReader::new(stdout);
+        let mut out = String::new();
+        for line in reader.lines() {
+            if let Ok(line) = line {
+                out.push_str(&line);
+                out.push('\n');
+            }
+        }
+        out
+    });
+
+    let status = child.wait().map_err(|e| format!("uv process error: {e}"))?;
+    let stderr_lines = stderr_handle.join().unwrap_or_default();
+    let _stdout = stdout_handle.join().unwrap_or_default();
+
+    if status.success() {
+        sp.finish_with_message(format!("{} {}", style("✔").green(), label));
+        Ok(())
     } else {
-        Err(format!(
-            "{}\n{}",
-            String::from_utf8_lossy(&output.stdout),
-            String::from_utf8_lossy(&output.stderr)
-        ))
+        sp.finish_with_message(format!("{} {}", style("✘").red(), label));
+        let err_msg = stderr_lines.into_iter().rev().take(5).collect::<Vec<_>>().into_iter().rev().collect::<Vec<_>>().join("\n");
+        Err(err_msg)
     }
 }
 
@@ -199,39 +245,24 @@ fn create_project(cfg: &ProjectConfig) -> Result<(), Box<dyn std::error::Error>>
     sp.finish_with_message(format!("{} Project structure created", style("✔").green()));
 
     // 2. Init uv project
-    let sp = spinner("Initializing uv project...");
-    run_cmd("uv", &["init", "--python", &cfg.python_version, "--no-readme"], &root)?;
+    run_uv_live(
+        &["init", "--python", &cfg.python_version, "--no-readme"],
+        &root,
+        &format!("Initializing uv project (Python {})", cfg.python_version),
+    )?;
     for f in &["hello.py", "main.py"] {
         let _ = std::fs::remove_file(root.join(f));
     }
-    sp.finish_with_message(format!(
-        "{} uv project initialized (Python {})",
-        style("✔").green(), cfg.python_version
-    ));
 
-    // 3. Install packages
-    let mut packages: Vec<String> = vec![
-        "hydra-core".into(),
-        "omegaconf".into(),
-        "watermark".into(),
-        "rdkit".into(),
-        "lightning".into(),
-    ];
+    // 3. Configure PyTorch index in pyproject.toml
     let torch_spec = format!("torch=={}", cfg.pytorch_version);
-    if cfg.use_wandb { packages.push("wandb".into()); }
-    if cfg.use_transformers { packages.push("transformers".into()); }
-
-    let total = packages.len() as u64 + 1;
-    let pb = progress_bar(total, "📦 Installing packages");
+    let pyproject = root.join("pyproject.toml");
+    let content = std::fs::read_to_string(&pyproject)?;
 
     if cfg.os == Os::Linux && cfg.has_gpu && cfg.cuda_version.is_some() {
         let cu = cfg.cuda_version.as_ref().unwrap().replace('.', "");
         let idx_url = format!("https://download.pytorch.org/whl/cu{cu}");
         let idx_name = format!("pytorch-cu{cu}");
-        // Cross-platform config: CUDA on Linux, PyPI fallback on macOS/Windows
-        let pyproject = root.join("pyproject.toml");
-        let content = std::fs::read_to_string(&pyproject)
-            .map_err(|e| format!("Failed to read pyproject.toml: {e}"))?;
         let index_config = format!("\
 \n[[tool.uv.index]]\n\
 name = \"{idx_name}\"\n\
@@ -248,14 +279,8 @@ torchvision = [\n\
 torchaudio = [\n\
   {{ index = \"{idx_name}\", marker = \"sys_platform == 'linux'\" }},\n\
 ]\n");
-        std::fs::write(&pyproject, format!("{content}{index_config}"))
-            .map_err(|e| format!("Failed to write pyproject.toml: {e}"))?;
-        run_cmd("uv", &["add", &torch_spec], &root)?;
+        std::fs::write(&pyproject, format!("{content}{index_config}"))?;
     } else {
-        // CPU-only: use explicit CPU index for consistent builds
-        let pyproject = root.join("pyproject.toml");
-        let content = std::fs::read_to_string(&pyproject)
-            .map_err(|e| format!("Failed to read pyproject.toml: {e}"))?;
         let index_config = "\
 \n[[tool.uv.index]]\n\
 name = \"pytorch-cpu\"\n\
@@ -272,33 +297,49 @@ torchvision = [\n\
 torchaudio = [\n\
   { index = \"pytorch-cpu\" },\n\
 ]\n";
-        std::fs::write(&pyproject, format!("{content}{index_config}"))
-            .map_err(|e| format!("Failed to write pyproject.toml: {e}"))?;
-        run_cmd("uv", &["add", &torch_spec], &root)?;
+        std::fs::write(&pyproject, format!("{content}{index_config}"))?;
     }
-    pb.set_position(1);
+
+    // 4. Install torch
+    let cuda_label = cfg.cuda_version.as_ref()
+        .map(|c| format!(" + CUDA {c}"))
+        .unwrap_or_default();
+    run_uv_live(
+        &["add", &torch_spec],
+        &root,
+        &format!("Installing PyTorch {}{}", cfg.pytorch_version, cuda_label),
+    )?;
+
+    // 5. Install runtime packages
+    let mut packages: Vec<String> = vec![
+        "hydra-core".into(),
+        "omegaconf".into(),
+        "watermark".into(),
+        "rdkit".into(),
+        "lightning".into(),
+    ];
+    if cfg.use_wandb { packages.push("wandb".into()); }
+    if cfg.use_transformers { packages.push("transformers".into()); }
 
     let pkg_refs: Vec<&str> = packages.iter().map(|s| s.as_str()).collect();
-    if !pkg_refs.is_empty() {
-        let mut args: Vec<&str> = vec!["add"];
-        args.extend(&pkg_refs);
-        run_cmd("uv", &args, &root)?;
-    }
-    pb.set_position(total);
-    pb.finish_with_message(format!("{} All packages installed", style("✔").green()));
+    let mut args: Vec<&str> = vec!["add"];
+    args.extend(&pkg_refs);
+    run_uv_live(&args, &root, "Installing runtime packages")?;
 
-    // 4. Install dev dependencies
-    let sp = spinner("Installing dev dependencies...");
-    run_cmd("uv", &["add", "--dev", "ipykernel", "ruff"], &root)?;
-    sp.finish_with_message(format!("{} Dev dependencies installed (ipykernel, ruff)", style("✔").green()));
+    // 6. Install dev dependencies
+    run_uv_live(
+        &["add", "--dev", "ipykernel", "ruff"],
+        &root,
+        "Installing dev dependencies (ipykernel, ruff)",
+    )?;
 
     // Done
     println!();
     println!("  {} Project {} created successfully!", style("🎉").bold(), style(&cfg.name).green().bold());
     println!();
     println!("  {} Next steps:", style("→").cyan());
-    println!("    cd {}", cfg.name);
-    println!("    uv run python src/main.py");
+    println!("    {}", style(format!("cd {}", cfg.name)).dim());
+    println!("    {}", style("uv run python src/main.py").dim());
     println!();
 
     Ok(())
