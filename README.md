@@ -40,24 +40,38 @@ Setting up a new ML research project means wiring together PyTorch, Lightning, H
 
 ### Prerequisites
 
-| Tool | Purpose |
-|------|---------|
-| [Rust toolchain](https://rustup.rs/) | Build from source |
-| [uv](https://docs.astral.sh/uv/) | Python package management (must be on `PATH`) |
+| Tool | Purpose | Install |
+|------|---------|---------|
+| [Rust toolchain](https://rustup.rs/) | Build from source | `curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs \| sh` |
+| [uv](https://docs.astral.sh/uv/) | Python package management | `curl -LsSf https://astral.sh/uv/install.sh \| sh` |
 
-### Build
+### Install (Linux / macOS / Windows)
 
 ```bash
 git clone https://github.com/hermee/ai-work.git
 cd ai-work
-cargo build --release
+cargo install --path .
 ```
 
-The binary is at `target/release/aiw`. Optionally, copy it to your PATH:
+This builds an optimized binary and installs `aiw` to `~/.cargo/bin/`, which is already on your `PATH` if you installed Rust via rustup.
+
+Verify:
 
 ```bash
-cp target/release/aiw ~/.local/bin/
+aiw --version
 ```
+
+### Uninstall
+
+```bash
+cargo uninstall ai-work
+```
+
+> **Alternative:** build manually and copy the binary yourself:
+> ```bash
+> cargo build --release
+> cp target/release/aiw ~/.local/bin/   # Linux/macOS
+> ```
 
 ---
 
