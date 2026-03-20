@@ -1,4 +1,4 @@
-use ai_work::{scaffold, templates, Os, ProjectConfig};
+use ai_work::{compatible_cuda, scaffold, templates, Os, ProjectConfig};
 
 use clap::Parser;
 use console::style;
@@ -144,12 +144,19 @@ fn gather_config(cli: &Cli) -> Result<ProjectConfig, Box<dyn std::error::Error>>
     };
 
     let cuda_version = if os == Os::Linux && has_gpu {
+        let cuda_opts = compatible_cuda(&pytorch_version);
         if let Some(ref c) = cli.cuda {
+            if !cuda_opts.contains(&c.as_str()) {
+                return Err(format!(
+                    "CUDA {} is not compatible with PyTorch {}. Valid options: {}",
+                    c, pytorch_version, cuda_opts.join(", ")
+                ).into());
+            }
             Some(c.clone())
         } else {
-            let opts = vec!["12.8", "12.6", "12.4", "12.1", "11.8"];
+            let opts: Vec<&str> = cuda_opts.to_vec();
             let idx = FuzzySelect::new()
-                .with_prompt(format!("  {} CUDA version", style("🎮").bold()))
+                .with_prompt(format!("  {} CUDA version (compatible with PyTorch {})", style("🎮").bold(), pytorch_version))
                 .items(&opts)
                 .default(0)
                 .interact()?;
