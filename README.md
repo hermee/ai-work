@@ -268,6 +268,23 @@ uv run python src/main.py general.seed=123 trainer.max_epochs=50
 
 ---
 
+## PyTorch ↔ CUDA Compatibility
+
+The table below shows which CUDA versions are supported by each PyTorch version offered by `aiw`. Data sourced from the [official PyTorch install page](https://pytorch.org/get-started/previous-versions/).
+
+| PyTorch | CUDA 11.8 | CUDA 12.1 | CUDA 12.4 | CUDA 12.6 | CUDA 12.8 | CUDA 12.9 | CPU |
+|---------|:---------:|:---------:|:---------:|:---------:|:---------:|:---------:|:---:|
+| 2.8.0   | ❌        | ❌        | ❌        | ✅        | ✅        | ✅        | ✅  |
+| 2.7.1   | ✅        | ❌        | ❌        | ✅        | ✅        | ❌        | ✅  |
+| 2.6.0   | ✅        | ❌        | ✅        | ✅        | ❌        | ❌        | ✅  |
+| 2.5.1   | ✅        | ✅        | ✅        | ❌        | ❌        | ❌        | ✅  |
+| 2.4.1   | ✅        | ✅        | ✅        | ❌        | ❌        | ❌        | ✅  |
+
+> `aiw` automatically selects the correct `--index-url` based on your chosen PyTorch + CUDA combination.
+> macOS and Windows always use CPU wheels (macOS also supports MPS on Apple Silicon).
+
+---
+
 ## Environment Detection
 
 | OS | GPU | PyTorch Install |
