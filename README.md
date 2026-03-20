@@ -7,7 +7,7 @@
 [![Rust](https://img.shields.io/badge/Rust-1.75%2B-orange?logo=rust&logoColor=white)](https://www.rust-lang.org/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 [![Tests](https://img.shields.io/badge/tests-17%20passing-brightgreen?logo=github-actions&logoColor=white)](#testing)
-[![PyTorch](https://img.shields.io/badge/PyTorch-2.4--2.8-EE4C2C?logo=pytorch&logoColor=white)](https://pytorch.org/)
+[![PyTorch](https://img.shields.io/badge/PyTorch-2.4--2.9-EE4C2C?logo=pytorch&logoColor=white)](https://pytorch.org/)
 [![Lightning](https://img.shields.io/badge/Lightning-2.x-792EE5?logo=lightning&logoColor=white)](https://lightning.ai/)
 [![Hydra](https://img.shields.io/badge/Hydra-1.3-89CFF0)](https://hydra.cc/)
 [![uv](https://img.shields.io/badge/uv-package%20manager-blueviolet)](https://docs.astral.sh/uv/)
@@ -111,8 +111,8 @@ aiw [OPTIONS]
 | `--name <NAME>` | `-n` | — | Project name (prompted if omitted) |
 | `--output <DIR>` | `-o` | `.` | Parent directory for the new project |
 | `--python <VER>` | | — | Python version (`3.10` – `3.13`) |
-| `--torch <VER>` | | — | PyTorch version (`2.4.1` – `2.8.0`) |
-| `--cuda <VER>` | | — | CUDA version (`11.8` – `12.8`); Linux + GPU only |
+| `--torch <VER>` | | — | PyTorch version (`2.4.1` – `2.9.1`) |
+| `--cuda <VER>` | | — | CUDA version (`11.8` – `13.0`); Linux + GPU only |
 | `--wandb <BOOL>` | | — | Install Weights & Biases |
 | `--transformers <BOOL>` | | — | Install HuggingFace Transformers |
 | `--help` | `-h` | | Print help |
@@ -272,13 +272,14 @@ uv run python src/main.py general.seed=123 trainer.max_epochs=50
 
 The table below shows which CUDA versions are supported by each PyTorch version offered by `aiw`. Data sourced from the [official PyTorch install page](https://pytorch.org/get-started/previous-versions/).
 
-| PyTorch | CUDA 11.8 | CUDA 12.1 | CUDA 12.4 | CUDA 12.6 | CUDA 12.8 | CUDA 12.9 | CPU |
-|---------|:---------:|:---------:|:---------:|:---------:|:---------:|:---------:|:---:|
-| 2.8.0   | ❌        | ❌        | ❌        | ✅        | ✅        | ✅        | ✅  |
-| 2.7.1   | ✅        | ❌        | ❌        | ✅        | ✅        | ❌        | ✅  |
-| 2.6.0   | ✅        | ❌        | ✅        | ✅        | ❌        | ❌        | ✅  |
-| 2.5.1   | ✅        | ✅        | ✅        | ❌        | ❌        | ❌        | ✅  |
-| 2.4.1   | ✅        | ✅        | ✅        | ❌        | ❌        | ❌        | ✅  |
+| PyTorch | CUDA 11.8 | CUDA 12.1 | CUDA 12.4 | CUDA 12.6 | CUDA 12.8 | CUDA 12.9 | CUDA 13.0 | CPU |
+|---------|:---------:|:---------:|:---------:|:---------:|:---------:|:---------:|:---------:|:---:|
+| 2.9.1   | ❌        | ❌        | ❌        | ✅        | ✅        | ❌        | ✅        | ✅  |
+| 2.8.0   | ❌        | ❌        | ❌        | ✅        | ✅        | ✅        | ❌        | ✅  |
+| 2.7.1   | ✅        | ❌        | ❌        | ✅        | ✅        | ❌        | ❌        | ✅  |
+| 2.6.0   | ✅        | ❌        | ✅        | ✅        | ❌        | ❌        | ❌        | ✅  |
+| 2.5.1   | ✅        | ✅        | ✅        | ❌        | ❌        | ❌        | ❌        | ✅  |
+| 2.4.1   | ✅        | ✅        | ✅        | ❌        | ❌        | ❌        | ❌        | ✅  |
 
 > `aiw` automatically selects the correct `--index-url` based on your chosen PyTorch + CUDA combination.
 > macOS and Windows always use CPU wheels (macOS also supports MPS on Apple Silicon).

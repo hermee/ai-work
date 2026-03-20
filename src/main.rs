@@ -134,7 +134,7 @@ fn gather_config(cli: &Cli) -> Result<ProjectConfig, Box<dyn std::error::Error>>
     let pytorch_version = if let Some(ref t) = cli.torch {
         t.clone()
     } else {
-        let opts = vec!["2.8.0", "2.7.1", "2.6.0", "2.5.1", "2.4.1"];
+        let opts = vec!["2.9.1", "2.8.0", "2.7.1", "2.6.0", "2.5.1", "2.4.1"];
         let idx = FuzzySelect::new()
             .with_prompt(format!("  {} PyTorch version", style("🔥").bold()))
             .items(&opts)

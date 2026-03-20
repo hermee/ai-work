@@ -44,6 +44,7 @@ impl ProjectConfig {
 /// Returns compatible CUDA versions for a given PyTorch version.
 pub fn compatible_cuda(torch: &str) -> &'static [&'static str] {
     match torch {
+        "2.9.1" => &["13.0", "12.8", "12.6"],
         "2.8.0" => &["12.9", "12.8", "12.6"],
         "2.7.1" => &["12.8", "12.6", "11.8"],
         "2.6.0" => &["12.6", "12.4", "11.8"],
@@ -56,6 +57,12 @@ pub fn compatible_cuda(torch: &str) -> &'static [&'static str] {
 #[cfg(test)]
 mod tests {
     use super::compatible_cuda;
+
+    #[test]
+    fn torch_291_supports_130_128_126() {
+        let opts = compatible_cuda("2.9.1");
+        assert_eq!(opts, &["13.0", "12.8", "12.6"]);
+    }
 
     #[test]
     fn torch_280_supports_129_128_126() {
