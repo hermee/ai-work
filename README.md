@@ -111,7 +111,7 @@ aiw [OPTIONS]
 | `--name <NAME>` | `-n` | — | Project name (prompted if omitted) |
 | `--output <DIR>` | `-o` | `.` | Parent directory for the new project |
 | `--python <VER>` | | — | Python version (`3.10` – `3.13`) |
-| `--torch <VER>` | | — | PyTorch version (`2.4.1` – `2.10.0`) |
+| `--torch <VER>` | | — | PyTorch version (`2.5.1` – `2.10.0`) |
 | `--cuda <VER>` | | — | CUDA version (`11.8` – `13.0`); Linux + GPU only |
 | `--wandb <BOOL>` | | — | Install Weights & Biases |
 | `--transformers <BOOL>` | | — | Install HuggingFace Transformers |
@@ -274,7 +274,7 @@ The table below shows which CUDA versions are supported by each PyTorch version 
 
 | PyTorch | CUDA 11.8 | CUDA 12.1 | CUDA 12.4 | CUDA 12.6 | CUDA 12.8 | CUDA 12.9 | CUDA 13.0 | CPU |
 |---------|:---------:|:---------:|:---------:|:---------:|:---------:|:---------:|:---------:|:---:|
-| 2.10.0  | ✅        | ❌        | ❌        | ✅        | ✅        | ❌        | ❌        | ✅  |
+| 2.10.0  | ❌        | ❌        | ❌        | ✅        | ✅        | ❌        | ✅        | ✅  |
 | 2.9.1   | ❌        | ❌        | ❌        | ✅        | ✅        | ❌        | ✅        | ✅  |
 | 2.8.0   | ❌        | ❌        | ❌        | ✅        | ✅        | ✅        | ❌        | ✅  |
 | 2.7.1   | ✅        | ❌        | ❌        | ✅        | ✅        | ❌        | ❌        | ✅  |
