@@ -227,14 +227,18 @@ fn create_project(cfg: &ProjectConfig) -> Result<(), Box<dyn std::error::Error>>
     if cfg.os == Os::Linux && cfg.has_gpu && cfg.cuda_version.is_some() {
         let cu = cfg.cuda_version.as_ref().unwrap().replace('.', "");
         let idx_url = format!("https://download.pytorch.org/whl/cu{cu}");
-        run_cmd("uv", &[
-            "pip", "install", &torch_spec,
-            "--index-url", &idx_url,
-            "--extra-index-url", "https://pypi.org/simple",
-        ], &root)?;
-        let _ = run_cmd("uv", &["add", &torch_spec, "--frozen"], &root);
+        // Configure a named PyTorch index scoped only to torch
+        let pyproject = root.join("pyproject.toml");
+        let content = std::fs::read_to_string(&pyproject)
+            .map_err(|e| format!("Failed to read pyproject.toml: {e}"))?;
+        let index_config = format!(
+            "\n[[tool.uv.index]]\nname = \"pytorch-cu{cu}\"\nurl = \"{idx_url}\"\nexplicit = true\n\n[tool.uv.sources]\ntorch = {{ index = \"pytorch-cu{cu}\" }}\n"
+        );
+        std::fs::write(&pyproject, format!("{content}{index_config}"))
+            .map_err(|e| format!("Failed to write pyproject.toml: {e}"))?;
+        run_cmd("uv", &["add", &torch_spec], &root)?;
     } else {
-        run_cmd("uv", &["add", torch_spec.as_str()], &root)?;
+        run_cmd("uv", &["add", &torch_spec], &root)?;
     }
     pb.set_position(1);
 
