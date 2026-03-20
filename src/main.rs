@@ -227,17 +227,53 @@ fn create_project(cfg: &ProjectConfig) -> Result<(), Box<dyn std::error::Error>>
     if cfg.os == Os::Linux && cfg.has_gpu && cfg.cuda_version.is_some() {
         let cu = cfg.cuda_version.as_ref().unwrap().replace('.', "");
         let idx_url = format!("https://download.pytorch.org/whl/cu{cu}");
-        // Configure a named PyTorch index scoped only to torch
+        let idx_name = format!("pytorch-cu{cu}");
+        // Cross-platform config: CUDA on Linux, PyPI fallback on macOS/Windows
         let pyproject = root.join("pyproject.toml");
         let content = std::fs::read_to_string(&pyproject)
             .map_err(|e| format!("Failed to read pyproject.toml: {e}"))?;
-        let index_config = format!(
-            "\n[[tool.uv.index]]\nname = \"pytorch-cu{cu}\"\nurl = \"{idx_url}\"\nexplicit = true\n\n[tool.uv.sources]\ntorch = {{ index = \"pytorch-cu{cu}\" }}\n"
-        );
+        let index_config = format!("\
+\n[[tool.uv.index]]\n\
+name = \"{idx_name}\"\n\
+url = \"{idx_url}\"\n\
+explicit = true\n\
+\n\
+[tool.uv.sources]\n\
+torch = [\n\
+  {{ index = \"{idx_name}\", marker = \"sys_platform == 'linux'\" }},\n\
+]\n\
+torchvision = [\n\
+  {{ index = \"{idx_name}\", marker = \"sys_platform == 'linux'\" }},\n\
+]\n\
+torchaudio = [\n\
+  {{ index = \"{idx_name}\", marker = \"sys_platform == 'linux'\" }},\n\
+]\n");
         std::fs::write(&pyproject, format!("{content}{index_config}"))
             .map_err(|e| format!("Failed to write pyproject.toml: {e}"))?;
         run_cmd("uv", &["add", &torch_spec], &root)?;
     } else {
+        // CPU-only: use explicit CPU index for consistent builds
+        let pyproject = root.join("pyproject.toml");
+        let content = std::fs::read_to_string(&pyproject)
+            .map_err(|e| format!("Failed to read pyproject.toml: {e}"))?;
+        let index_config = "\
+\n[[tool.uv.index]]\n\
+name = \"pytorch-cpu\"\n\
+url = \"https://download.pytorch.org/whl/cpu\"\n\
+explicit = true\n\
+\n\
+[tool.uv.sources]\n\
+torch = [\n\
+  { index = \"pytorch-cpu\" },\n\
+]\n\
+torchvision = [\n\
+  { index = \"pytorch-cpu\" },\n\
+]\n\
+torchaudio = [\n\
+  { index = \"pytorch-cpu\" },\n\
+]\n";
+        std::fs::write(&pyproject, format!("{content}{index_config}"))
+            .map_err(|e| format!("Failed to write pyproject.toml: {e}"))?;
         run_cmd("uv", &["add", &torch_spec], &root)?;
     }
     pb.set_position(1);
